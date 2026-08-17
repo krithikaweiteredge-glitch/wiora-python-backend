@@ -19,10 +19,18 @@ services:
         sync: false
       - key: GROQ_API_KEY          # your Groq API key
         sync: false
+      - key: GEMINI_API_KEY        # Google Gemini key (starts with AIzaSy); blank = unused
+        sync: false
       - key: ELEVENLABS_API_KEY    # optional — leave blank to skip cloud TTS
         sync: false
 
       # --- Non-secret config (safe to commit) ---
+      # Which LLM to use: "groq" (default) or "gemini". To use Gemini, set this
+      # to gemini AND paste a valid GEMINI_API_KEY above.
+      - key: AI_PROVIDER
+        value: groq
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
       - key: FIREBASE_PROJECT_ID
         value: wiora-1a833
       # 8b-instant has a higher free daily-token limit than 70b — safer for a

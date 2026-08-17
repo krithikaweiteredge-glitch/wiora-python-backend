@@ -11,19 +11,33 @@ from ..config import get_settings
 
 settings = get_settings()
 
+GROQ_BASE = "https://api.groq.com/openai/v1"
+# Google exposes Gemini through an OpenAI-compatible endpoint, so the same
+# client works — we just swap the base URL, key and model.
+GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
 
 class AIService:
-    """Text generation. Extend with stream() / structured() as versions grow."""
+    """Text generation. Extend with stream() / structured() as versions grow.
+
+    Provider is chosen from AI_PROVIDER (groq | gemini); both speak the OpenAI
+    API shape, so callers never change when you switch."""
 
     def __init__(self) -> None:
         self.provider = "mock"
         self._client: OpenAI | None = None
-        if settings.has_groq:
+        self._model = settings.groq_model
+        self._vision_model = settings.vision_model
+
+        provider = settings.ai_provider.lower()
+        if provider == "gemini" and settings.has_gemini:
+            self.provider = "gemini"
+            self._client = OpenAI(api_key=settings.gemini_api_key, base_url=GEMINI_BASE)
+            self._model = settings.gemini_model
+            self._vision_model = settings.gemini_model  # Gemini flash is multimodal
+        elif settings.has_groq:
             self.provider = "groq"
-            self._client = OpenAI(
-                api_key=settings.groq_api_key,
-                base_url="https://api.groq.com/openai/v1",
-            )
+            self._client = OpenAI(api_key=settings.groq_api_key, base_url=GROQ_BASE)
 
     def generate(self, system: str, messages: list[dict]) -> str:
         if self._client is None:
@@ -31,7 +45,7 @@ class AIService:
             last = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
             return f'(mock) You said: "{last}". Add GROQ_API_KEY for real answers.'
         completion = self._client.chat.completions.create(
-            model=settings.groq_model,
+            model=self._model,
             messages=[{"role": "system", "content": system}, *messages],
             temperature=0.6,
         )
@@ -40,9 +54,9 @@ class AIService:
     def generate_vision(self, system: str, prompt: str, image_data_uri: str) -> str:
         """Answer about an image using a vision-capable model."""
         if self._client is None:
-            return "(mock) Add GROQ_API_KEY to read images."
+            return "(mock) Add an AI key to read images."
         completion = self._client.chat.completions.create(
-            model=settings.vision_model,
+            model=self._vision_model,
             messages=[
                 {"role": "system", "content": system},
                 {
@@ -68,7 +82,7 @@ class AIService:
             kwargs = {"tools": tools, "tool_choice": "auto"}
         try:
             completion = self._client.chat.completions.create(
-                model=settings.groq_model,
+                model=self._model,
                 messages=[{"role": "system", "content": system}, *messages],
                 temperature=0.6,
                 **kwargs,

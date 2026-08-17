@@ -10,10 +10,18 @@ class Settings(BaseSettings):
 
     database_url: str = ""
 
+    # Which LLM provider the AIService uses: groq | gemini | mock.
+    ai_provider: str = "groq"
+
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
     # Multimodal model for image attachments (Groq vision-capable).
     vision_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+
+    # Google Gemini (via its OpenAI-compatible endpoint). Get a key at
+    # https://aistudio.google.com/apikey — it starts with "AIzaSy".
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"  # flash is multimodal + supports tools
 
     firebase_project_id: str = "wiora-1a833"
 
@@ -41,6 +49,10 @@ class Settings(BaseSettings):
     @property
     def has_groq(self) -> bool:
         return bool(self.groq_api_key)
+
+    @property
+    def has_gemini(self) -> bool:
+        return bool(self.gemini_api_key)
 
     @property
     def has_db(self) -> bool:
