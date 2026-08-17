@@ -1,0 +1,35 @@
+# Render Blueprint for the Wiora backend.
+# In Render: New → Blueprint → point at this repo. Render reads this file,
+# creates the service, and prompts you for the secret values (sync: false).
+#
+# If this lives in a monorepo (the whole `wiora/` repo), set the service's
+# Root Directory to `backend-python` in the Render dashboard so it finds the
+# Dockerfile. If you pushed `backend-python/` as its own repo, no change needed.
+services:
+  - type: web
+    name: wiora-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # --- Secrets: Render prompts for these; never commit them ---
+      - key: DATABASE_URL          # your Neon Postgres URL
+        sync: false
+      - key: GROQ_API_KEY          # your Groq API key
+        sync: false
+      - key: ELEVENLABS_API_KEY    # optional — leave blank to skip cloud TTS
+        sync: false
+
+      # --- Non-secret config (safe to commit) ---
+      - key: FIREBASE_PROJECT_ID
+        value: wiora-1a833
+      # 8b-instant has a higher free daily-token limit than 70b — safer for a
+      # live demo. Switch back to llama-3.3-70b-versatile for best quality.
+      - key: GROQ_MODEL
+        value: llama-3.1-8b-instant
+      # Keep embeddings off on the 512MB free tier (avoids OOM). Set to
+      # "fastembed" later to re-enable semantic memory / document RAG.
+      - key: EMBEDDINGS_PROVIDER
+        value: none
