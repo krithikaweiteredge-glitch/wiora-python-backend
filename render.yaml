@@ -30,7 +30,7 @@ services:
       - key: AI_PROVIDER
         value: groq
       - key: GEMINI_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.1-flash-lite
       - key: FIREBASE_PROJECT_ID
         value: wiora-1a833
       # 8b-instant has a higher free daily-token limit than 70b — safer for a

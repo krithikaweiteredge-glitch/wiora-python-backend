@@ -21,7 +21,9 @@ class Settings(BaseSettings):
     # Google Gemini (via its OpenAI-compatible endpoint). Get a key at
     # https://aistudio.google.com/apikey — it starts with "AIzaSy".
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"  # flash is multimodal + supports tools
+    # Current cheap multimodal flash model (2.5-flash is now restricted for new
+    # users). Change GEMINI_MODEL if Google updates the lineup again.
+    gemini_model: str = "gemini-3.1-flash-lite"
 
     firebase_project_id: str = "wiora-1a833"
 
