@@ -164,33 +164,55 @@ def handle_chat(db: Session, user_id: str, req: ChatRequest):
     pending: list[ToolCallOut] = []
     reply, provider = "", ai_service.provider
 
+    # Tool loop with proper OpenAI tool-message threading: we append the model's
+    # tool-call turn, then a `tool` result message per call. This is what tells the
+    # model a tool already ran, so it stops re-issuing the SAME call every pass
+    # (the old code fed results back as plain text, so identical actions like
+    # save_memory / create_task fired once per loop — up to MAX_TOOL_LOOPS times).
     for _ in range(MAX_TOOL_LOOPS):
-        reply, raw_calls = ai_service.generate_with_tools(system, convo, tool_specs())
-        ran_backend = False
-        for raw in raw_calls:
-            valid = validate_call(raw["name"], raw["args"])
+        reply, calls, assistant_message = ai_service.generate_with_tools(
+            system, convo, tool_specs()
+        )
+        if not calls:
+            break  # the model answered with plain text — done.
+        # Record the assistant's tool-call turn before any tool results (required
+        # by the API: every tool_call_id must be answered by a tool message).
+        convo.append(assistant_message)
+        for c in calls:
+            valid = validate_call(c["name"], c["args"])
             if valid is None:
+                convo.append(
+                    {"role": "tool", "tool_call_id": c["id"], "content": "Invalid call; skipped."}
+                )
                 continue
             summary = _summarize(valid.name, valid.args)
             if valid.confirmation == "always":
                 # Approval Engine: do NOT execute — return for the user to confirm.
                 pending.append(ToolCallOut(**valid.__dict__, summary=summary))
                 convo.append(
-                    {"role": "assistant", "content": f"(awaiting user confirmation to {summary})"}
+                    {
+                        "role": "tool",
+                        "tool_call_id": c["id"],
+                        "content": f"Held for the user to confirm: {summary}. Do not call again.",
+                    }
                 )
             elif valid.runs_on == "device":
                 device_calls.append(ToolCallOut(**valid.__dict__, summary=summary))
+                convo.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": c["id"],
+                        "content": "Scheduled on the user's device. Done — do not call again.",
+                    }
+                )
             else:
-                ran_backend = True
                 result = execute_backend(valid, ctx)
                 audit.record(db, user_id, "tool_call", f"{valid.name}: {result[:120]}")
-                convo.append({"role": "assistant", "content": f"Tool {valid.name}: {result}"})
-        if not ran_backend:
-            break
+                convo.append({"role": "tool", "tool_call_id": c["id"], "content": result})
 
-    # If the model ended on tool calls with no text (and it wasn't a device turn),
-    # force a final plain-text reply.
-    if not reply.strip() and not device_calls:
+    # If the model ended on tool calls with no text (and it wasn't a device/approval
+    # turn), force a final plain-text reply.
+    if not reply.strip() and not device_calls and not pending:
         reply = ai_service.generate(system, convo)
 
     if last_user:

@@ -83,10 +83,15 @@ class AIService:
 
     def generate_with_tools(
         self, system: str, messages: list[dict], tools: list[dict] | None
-    ) -> tuple[str, list[dict]]:
-        """Return (reply_text, raw_tool_calls). tool_calls are {name, args}."""
+    ) -> tuple[str, list[dict], dict | None]:
+        """Return (reply_text, tool_calls, assistant_message).
+
+        tool_calls are {id, name, args}. assistant_message is the raw assistant
+        turn (with its tool_calls) that MUST be appended to the conversation
+        before the matching tool-result messages — this is what lets the model
+        see that a tool already ran, so it doesn't call it again in a loop."""
         if self._client is None:
-            return self.generate(system, messages), []
+            return self.generate(system, messages), [], None
         kwargs: dict = {}
         if tools:
             kwargs = {"tools": tools, "tool_choice": "auto"}
@@ -98,23 +103,36 @@ class AIService:
                 **kwargs,
             )
         except Exception:
-            # llama on Groq occasionally emits a malformed tool call (400
+            # A model on Groq occasionally emits a malformed tool call (400
             # tool_use_failed). Fall back to a plain reply so the user isn't 500'd.
             if tools:
-                return self.generate(system, messages), []
+                return self.generate(system, messages), [], None
             raise
         msg = completion.choices[0].message
+        import json
         calls: list[dict] = []
+        raw_tool_calls: list[dict] = []
         for tc in msg.tool_calls or []:
             if getattr(tc, "type", "function") != "function":
                 continue
-            import json
             try:
                 args = json.loads(tc.function.arguments or "{}")
             except Exception:
                 args = {}
-            calls.append({"name": tc.function.name, "args": args})
-        return (msg.content or "").strip(), calls
+            calls.append({"id": tc.id, "name": tc.function.name, "args": args})
+            raw_tool_calls.append(
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.function.name, "arguments": tc.function.arguments or "{}"},
+                }
+            )
+        assistant_message = (
+            {"role": "assistant", "content": msg.content or "", "tool_calls": raw_tool_calls}
+            if raw_tool_calls
+            else None
+        )
+        return (msg.content or "").strip(), calls, assistant_message
 
 
 class EmbeddingService:
