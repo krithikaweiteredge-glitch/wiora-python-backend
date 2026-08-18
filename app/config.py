@@ -14,16 +14,16 @@ class Settings(BaseSettings):
     ai_provider: str = "groq"
 
     groq_api_key: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
     # Multimodal model for image attachments (Groq vision-capable).
     vision_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
 
     # Google Gemini (via its OpenAI-compatible endpoint). Get a key at
     # https://aistudio.google.com/apikey — it starts with "AIzaSy".
     gemini_api_key: str = ""
-    # Current cheap multimodal flash model (2.5-flash is now restricted for new
-    # users). Change GEMINI_MODEL if Google updates the lineup again.
-    gemini_model: str = "gemini-3.1-flash-lite"
+    # Current multimodal flash model (verified available + good at vision on the
+    # OpenAI-compatible endpoint). Change GEMINI_MODEL if Google updates the lineup.
+    gemini_model: str = "gemini-3.6-flash"
 
     firebase_project_id: str = "wiora-1a833"
 

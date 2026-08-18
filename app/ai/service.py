@@ -39,6 +39,15 @@ class AIService:
             self.provider = "groq"
             self._client = OpenAI(api_key=settings.groq_api_key, base_url=GROQ_BASE)
 
+        # Vision routing: Groq no longer offers a reliable multimodal model, so if a
+        # Gemini key is configured we send IMAGE understanding to Gemini even when the
+        # main text provider is Groq. Text + tool-calling stay on the main provider
+        # untouched, so a missing/expired Gemini key never breaks normal chat.
+        self._vision_client = self._client
+        if settings.has_gemini and self.provider != "gemini":
+            self._vision_client = OpenAI(api_key=settings.gemini_api_key, base_url=GEMINI_BASE)
+            self._vision_model = settings.gemini_model
+
     def generate(self, system: str, messages: list[dict]) -> str:
         if self._client is None:
             # No key configured — return a deterministic stub so the app runs.
@@ -52,10 +61,11 @@ class AIService:
         return (completion.choices[0].message.content or "").strip()
 
     def generate_vision(self, system: str, prompt: str, image_data_uri: str) -> str:
-        """Answer about an image using a vision-capable model."""
-        if self._client is None:
+        """Answer about an image using a vision-capable model (Gemini when configured)."""
+        client = self._vision_client
+        if client is None:
             return "(mock) Add an AI key to read images."
-        completion = self._client.chat.completions.create(
+        completion = client.chat.completions.create(
             model=self._vision_model,
             messages=[
                 {"role": "system", "content": system},

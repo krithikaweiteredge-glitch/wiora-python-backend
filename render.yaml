@@ -36,7 +36,7 @@ services:
       # 8b-instant has a higher free daily-token limit than 70b — safer for a
       # live demo. Switch back to llama-3.3-70b-versatile for best quality.
       - key: GROQ_MODEL
-        value: llama-3.1-8b-instant
+        value: openai/gpt-oss-120b
       # Keep embeddings off on the 512MB free tier (avoids OOM). Set to
       # "fastembed" later to re-enable semantic memory / document RAG.
       - key: EMBEDDINGS_PROVIDER
