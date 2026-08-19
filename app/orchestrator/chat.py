@@ -37,6 +37,8 @@ TOOL_POLICY = "\n".join(
         " timeMin/timeMax from the current date-time.",
         "- If a tool reports Gmail/Calendar isn't connected, tell the user to connect it in"
         " Settings; do not retry.",
+        "- Call search_web for current facts/news/prices the user asks about that aren't in"
+        " the conversation or their own data. Don't use it for personal/stored info.",
     ]
 )
 

@@ -50,6 +50,37 @@ def cache_set(key: str, value: str, ttl_seconds: int = 300) -> None:
         pass
 
 
+import json
+
+
+def session_set(user_id: str, data: dict, ttl_seconds: int = 3600) -> None:
+    """Store per-user server-side session state (agent context, transient prefs).
+
+    This is the mobile-native equivalent of a web session: the app authenticates
+    with a Firebase bearer token (not a cookie), and this holds the short-lived
+    state keyed to that user. No-op when Redis is disabled."""
+    cache_set(f"sess:{user_id}", json.dumps(data), ttl_seconds)
+
+
+def session_get(user_id: str) -> dict | None:
+    raw = cache_get(f"sess:{user_id}")
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except Exception:
+        return None
+
+
+def session_delete(user_id: str) -> None:
+    if not _enabled:
+        return
+    try:
+        _client.delete(f"sess:{user_id}")  # type: ignore[union-attr]
+    except Exception:
+        pass
+
+
 def allow_request(user_id: str) -> bool:
     """Fixed-window per-user rate limit. Always allows when Redis is disabled."""
     if not _enabled:

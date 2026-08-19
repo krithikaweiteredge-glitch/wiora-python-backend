@@ -11,9 +11,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .db import init_db
+from .middleware import RequestLogMiddleware
+from .observability import setup_logging, setup_sentry
 from .routers import agent, briefing, chat, health, meeting, store, tool, voice
 
 settings = get_settings()
+setup_logging()
+setup_sentry()
 
 
 @asynccontextmanager
@@ -25,9 +29,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Wiora API", version="1.0.0", lifespan=lifespan)
 
+app.add_middleware(RequestLogMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

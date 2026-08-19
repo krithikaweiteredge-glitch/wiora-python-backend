@@ -40,6 +40,34 @@ class Settings(BaseSettings):
     elevenlabs_api_key: str = ""
     elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"
 
+    # --- Production hardening ---
+    # Comma-separated allowed CORS origins ("*" = any; fine for a mobile client).
+    allowed_origins: str = "*"
+    log_level: str = "INFO"
+    # Sentry error tracking — no-op until a DSN is set (sentry-sdk stays optional).
+    sentry_dsn: str = ""
+    environment: str = "production"
+
+    # --- Web search tool ---
+    # Provider: "tavily" | "brave" | "serper". Empty key = tool reports "not
+    # configured" instead of failing. Get a free Tavily key at tavily.com.
+    search_provider: str = "tavily"
+    search_api_key: str = ""
+
+    # --- Celery + push (blueprint workflow engine) ---
+    # Broker defaults to REDIS_URL when unset. FCM needs a Firebase service-account
+    # JSON (path) to send push; empty = push disabled (scheduling still logs).
+    celery_broker_url: str = ""
+    fcm_credentials_path: str = ""
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()] or ["*"]
+
+    @property
+    def broker_url(self) -> str:
+        return self.celery_broker_url or self.redis_url
+
     @property
     def has_whisper(self) -> bool:
         return bool(self.groq_api_key)
