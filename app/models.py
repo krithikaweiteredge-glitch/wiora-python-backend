@@ -3,7 +3,7 @@ messages and memories are the PRIMARY records here in PostgreSQL."""
 from datetime import datetime, timezone
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -117,6 +117,19 @@ class DocumentChunk(Base):
     user_id: Mapped[str] = mapped_column(String(128), index=True)
     text: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
+
+
+class SavedLocation(Base):
+    """A named place the user saves (Home, Office, Gym) for geofence reminders.
+    Coordinates + a radius; the phone registers the actual geofence locally."""
+    __tablename__ = "saved_locations"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(128), index=True)
+    label: Mapped[str] = mapped_column(String(120))
+    latitude: Mapped[float] = mapped_column(Float)
+    longitude: Mapped[float] = mapped_column(Float)
+    radius_m: Mapped[int] = mapped_column(Integer, default=150)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
 class Task(Base):

@@ -26,6 +26,7 @@ from ..models import (
     Personality,
     Preference,
     Reminder,
+    SavedLocation,
     Task,
 )
 from ..services.documents import chunk_text, extract_text
@@ -42,6 +43,8 @@ from ..schemas import (
     PreferenceIn,
     ReminderIn,
     ReminderOut,
+    LocationIn,
+    LocationOut,
     TaskIn,
     TaskOut,
 )
@@ -268,6 +271,43 @@ def delete_task(tid: int, user_id: str = Depends(current_user), db: Session = De
     t = db.get(Task, tid)
     if t and t.user_id == user_id:
         db.delete(t)
+        db.commit()
+    return {"ok": True}
+
+
+# --- Saved locations (for geofence reminders) ---
+def _loc_out(x: SavedLocation) -> LocationOut:
+    return LocationOut(
+        id=x.id, label=x.label, latitude=x.latitude, longitude=x.longitude,
+        radiusM=x.radius_m, createdAt=_iso(x.created_at),
+    )
+
+
+@router.get("/api/locations", response_model=list[LocationOut])
+def list_locations(user_id: str = Depends(current_user), db: Session = Depends(get_db)):
+    rows = db.execute(
+        select(SavedLocation).where(SavedLocation.user_id == user_id).order_by(SavedLocation.id.desc())
+    ).scalars().all()
+    return [_loc_out(x) for x in rows]
+
+
+@router.post("/api/locations", response_model=LocationOut)
+def create_location(body: LocationIn, user_id: str = Depends(current_user), db: Session = Depends(get_db)):
+    x = SavedLocation(
+        user_id=user_id, label=body.label, latitude=body.latitude,
+        longitude=body.longitude, radius_m=body.radiusM,
+    )
+    db.add(x)
+    db.commit()
+    db.refresh(x)
+    return _loc_out(x)
+
+
+@router.delete("/api/locations/{lid}")
+def delete_location(lid: int, user_id: str = Depends(current_user), db: Session = Depends(get_db)):
+    x = db.get(SavedLocation, lid)
+    if x and x.user_id == user_id:
+        db.delete(x)
         db.commit()
     return {"ok": True}
 

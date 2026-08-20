@@ -39,6 +39,9 @@ TOOL_POLICY = "\n".join(
         " Settings; do not retry.",
         "- Call search_web for current facts/news/prices the user asks about that aren't in"
         " the conversation or their own data. Don't use it for personal/stored info.",
+        "- Location: save_location stores a named place; create_location_reminder makes a"
+        " geofence reminder (\"remind me when I'm near X\"). If the user names a saved place,"
+        " call list_locations first to get its coordinates, then pass them along.",
     ]
 )
 

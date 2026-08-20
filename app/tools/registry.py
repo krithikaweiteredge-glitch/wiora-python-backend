@@ -23,6 +23,11 @@ from .contacts import search_contact_tool
 from .tasks import complete_task_tool, create_task_tool, list_tasks_tool
 from .documents import search_documents_tool
 from .websearch import search_web_tool
+from .locations import (
+    create_location_reminder_tool,
+    list_locations_tool,
+    save_location_tool,
+)
 
 _TOOLS: list[Tool] = [
     save_memory_tool,
@@ -42,6 +47,9 @@ _TOOLS: list[Tool] = [
     complete_task_tool,
     search_documents_tool,
     search_web_tool,
+    save_location_tool,
+    list_locations_tool,
+    create_location_reminder_tool,
 ]
 REGISTRY: dict[str, Tool] = {t.name: t for t in _TOOLS}
 

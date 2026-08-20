@@ -127,6 +127,22 @@ class TaskOut(BaseModel):
     createdAt: str
 
 
+class LocationIn(BaseModel):
+    label: str = Field(min_length=1, max_length=120)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    radiusM: int = Field(default=150, ge=50, le=5000)
+
+
+class LocationOut(BaseModel):
+    id: int
+    label: str
+    latitude: float
+    longitude: float
+    radiusM: int
+    createdAt: str
+
+
 class DocumentIn(BaseModel):
     filename: str = Field(min_length=1, max_length=300)
     mimeType: str = Field(max_length=128)
