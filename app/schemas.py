@@ -27,6 +27,11 @@ class Attachment(BaseModel):
     dataBase64: str = Field(min_length=1)
 
 
+class Coordinates(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+
+
 class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=50)
     conversation_id: int | None = None
@@ -35,6 +40,7 @@ class ChatRequest(BaseModel):
     timezone: str | None = None
     googleAccessToken: str | None = None  # phone-owned, used transiently for Gmail/Calendar
     attachment: Attachment | None = None  # a file/image attached to this message
+    location: Coordinates | None = None  # phone's current position (for "save here" etc.)
 
 
 class ToolCallOut(BaseModel):

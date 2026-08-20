@@ -40,8 +40,9 @@ TOOL_POLICY = "\n".join(
         "- Call search_web for current facts/news/prices the user asks about that aren't in"
         " the conversation or their own data. Don't use it for personal/stored info.",
         "- Location: save_location stores a named place; create_location_reminder makes a"
-        " geofence reminder (\"remind me when I'm near X\"). If the user names a saved place,"
-        " call list_locations first to get its coordinates, then pass them along.",
+        " geofence reminder (\"remind me when I'm near X\"). To get coordinates: use the"
+        " user's current location from the prompt for 'here'; call list_locations for a"
+        " saved place; or geocode_place for any other place/address. Then pass lat/lng along.",
     ]
 )
 
@@ -129,10 +130,23 @@ def handle_chat(db: Session, user_id: str, req: ChatRequest):
 
     memories = retrieve(db, user_id, last_user) if last_user else []
     system = _build_system_prompt(personality, now, build_context_block(memories))
+    if req.location is not None:
+        # Let the model use the user's current spot for "save here" / "remind me
+        # near here" without a separate tool call.
+        system += (
+            f"\nThe user's current location is approximately "
+            f"{req.location.latitude:.5f}, {req.location.longitude:.5f} "
+            "(latitude, longitude). Use it when they refer to 'here' or their current place."
+        )
 
     convo: list[dict] = [{"role": m.role, "content": m.content} for m in req.messages]
     ctx = ToolContext(
-        db=db, user_id=user_id, google_access_token=req.googleAccessToken, timezone=req.timezone
+        db=db,
+        user_id=user_id,
+        google_access_token=req.googleAccessToken,
+        timezone=req.timezone,
+        user_lat=req.location.latitude if req.location else None,
+        user_lng=req.location.longitude if req.location else None,
     )
 
     # ChatGPT-style attachment on this message: an IMAGE goes to the vision model

@@ -25,6 +25,7 @@ from .documents import search_documents_tool
 from .websearch import search_web_tool
 from .locations import (
     create_location_reminder_tool,
+    geocode_place_tool,
     list_locations_tool,
     save_location_tool,
 )
@@ -49,6 +50,7 @@ _TOOLS: list[Tool] = [
     search_web_tool,
     save_location_tool,
     list_locations_tool,
+    geocode_place_tool,
     create_location_reminder_tool,
 ]
 REGISTRY: dict[str, Tool] = {t.name: t for t in _TOOLS}

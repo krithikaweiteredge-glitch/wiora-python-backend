@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from ..models import SavedLocation
+from ..services.geocode import geocode
 from .base import Tool, ToolContext
 
 
@@ -47,6 +48,40 @@ save_location_tool = Tool(
     confirmation="never",
     runs_on="backend",
     execute=_save_location,
+)
+
+
+# --- geocode_place (backend) ---
+class GeocodeArgs(BaseModel):
+    place: str = Field(min_length=1, max_length=200)
+
+
+def _geocode(args: GeocodeArgs, ctx: ToolContext) -> str:
+    coords = geocode(args.place)
+    if coords is None:
+        return f'Could not find coordinates for "{args.place}".'
+    lat, lng = coords
+    return f"{lat:.6f},{lng:.6f}"
+
+
+geocode_place_tool = Tool(
+    name="geocode_place",
+    description=(
+        "Resolve a place name or address to latitude,longitude. Use this to get "
+        "coordinates for save_location or create_location_reminder when the user "
+        "names a place (e.g. 'the station', a shop, an address) that isn't already "
+        "a saved location. Returns 'lat,lng'."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {"place": {"type": "string"}},
+        "required": ["place"],
+        "additionalProperties": False,
+    },
+    args_model=GeocodeArgs,
+    confirmation="never",
+    runs_on="backend",
+    execute=_geocode,
 )
 
 

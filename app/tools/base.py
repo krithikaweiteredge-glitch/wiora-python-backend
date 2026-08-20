@@ -16,6 +16,10 @@ class ToolContext:
     user_id: str
     google_access_token: str | None = None
     timezone: str | None = None
+    # The phone's current position (sent per request), for "save this location" and
+    # resolving "near here". None when location permission isn't granted.
+    user_lat: float | None = None
+    user_lng: float | None = None
 
 
 @dataclass
