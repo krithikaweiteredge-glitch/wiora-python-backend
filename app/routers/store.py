@@ -262,6 +262,13 @@ def complete_task(tid: int, user_id: str = Depends(current_user), db: Session = 
     t = db.get(Task, tid)
     if t and t.user_id == user_id:
         t.done = True
+        if t.repeat and t.repeat != "none":  # recurring → spawn next occurrence
+            from datetime import datetime, timezone
+            from ..services.recurrence import next_occurrence
+
+            nxt = next_occurrence(t.due_at or datetime.now(timezone.utc), t.repeat)
+            if nxt is not None:
+                db.add(Task(user_id=user_id, text=t.text, due_at=nxt, repeat=t.repeat))
         db.commit()
     return {"ok": True}
 

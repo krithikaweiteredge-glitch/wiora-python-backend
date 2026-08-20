@@ -36,6 +36,45 @@ search_email_tool = Tool(
 )
 
 
+class FollowupArgs(BaseModel):
+    days: int = Field(default=7, ge=1, le=30)
+
+
+def _followups(args: FollowupArgs, ctx: ToolContext) -> str:
+    """Recent emails that likely need a reply (unread/important, not promo/social)."""
+    if not ctx.google_access_token:
+        return NOT_CONNECTED
+    query = (
+        f"newer_than:{args.days}d is:unread -in:sent "
+        "-category:promotions -category:social -category:updates"
+    )
+    rows = search_messages(ctx.google_access_token, query, 10)
+    if not rows:
+        return "No recent emails look like they need a follow-up."
+    return "These recent emails may need a reply:\n" + "\n".join(
+        f"id:{r['id']} | {r['from']} | {r['subject']} | {r['snippet']}" for r in rows
+    )
+
+
+find_followups_tool = Tool(
+    name="find_followups",
+    description=(
+        "Find recent emails that likely need a reply/follow-up (unread, important, "
+        "not promotions). Use when the user asks what needs following up, what they "
+        "owe replies to, or to check their inbox for action items."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {"days": {"type": "integer", "description": "How many days back (default 7)."}},
+        "additionalProperties": False,
+    },
+    args_model=FollowupArgs,
+    confirmation="never",
+    runs_on="backend",
+    execute=_followups,
+)
+
+
 class ReadArgs(BaseModel):
     id: str = Field(min_length=1, max_length=128)
 

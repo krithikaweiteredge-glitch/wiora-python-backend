@@ -33,6 +33,11 @@ celery.conf.update(
             "task": "app.workflow.tasks.send_daily_briefings",
             "schedule": crontab(hour=7, minute=0),
         },
+        # Fire time-triggered automations — every minute.
+        "run-automations": {
+            "task": "app.workflow.tasks.run_due_automations",
+            "schedule": 60.0,
+        },
     },
 )
 

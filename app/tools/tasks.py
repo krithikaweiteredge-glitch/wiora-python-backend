@@ -86,8 +86,19 @@ def _complete(args: CompleteTaskArgs, ctx: ToolContext) -> str:
     if t is None or t.user_id != ctx.user_id:
         return "That task wasn't found."
     t.done = True
+    # Recurring task: spawn the next occurrence so it keeps coming back.
+    extra = ""
+    if t.repeat and t.repeat != "none":
+        from datetime import datetime, timezone
+        from ..services.recurrence import next_occurrence
+
+        base = t.due_at or datetime.now(timezone.utc)
+        nxt = next_occurrence(base, t.repeat)
+        if nxt is not None:
+            ctx.db.add(Task(user_id=t.user_id, text=t.text, due_at=nxt, repeat=t.repeat))
+            extra = f" Next one scheduled for {nxt.date().isoformat()}."
     ctx.db.commit()
-    return f'Marked task #{args.taskId} done: "{t.text}".'
+    return f'Marked task #{args.taskId} done: "{t.text}".{extra}'
 
 
 complete_task_tool = Tool(

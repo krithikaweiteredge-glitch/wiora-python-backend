@@ -13,6 +13,7 @@ from .calendar import (
 )
 from .gmail import (
     create_email_draft_tool,
+    find_followups_tool,
     read_email_tool,
     search_email_tool,
     send_email_tool,
@@ -28,6 +29,11 @@ from .locations import (
     geocode_place_tool,
     list_locations_tool,
     save_location_tool,
+)
+from .automations import (
+    create_automation_tool,
+    delete_automation_tool,
+    list_automations_tool,
 )
 
 _TOOLS: list[Tool] = [
@@ -52,6 +58,10 @@ _TOOLS: list[Tool] = [
     list_locations_tool,
     geocode_place_tool,
     create_location_reminder_tool,
+    create_automation_tool,
+    list_automations_tool,
+    delete_automation_tool,
+    find_followups_tool,
 ]
 REGISTRY: dict[str, Tool] = {t.name: t for t in _TOOLS}
 

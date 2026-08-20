@@ -121,6 +121,24 @@ class DocumentChunk(Base):
     embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
 
 
+class Automation(Base):
+    """A trigger→action rule (blueprint V4). V1 supports time triggers
+    (daily/weekly at HH:MM) with actions: briefing | reminder | agent."""
+    __tablename__ = "automations"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(128), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    trigger_type: Mapped[str] = mapped_column(String(16))  # daily | weekly
+    hour: Mapped[int] = mapped_column(Integer, default=8)
+    minute: Mapped[int] = mapped_column(Integer, default=0)
+    weekday: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 0=Mon..6=Sun (weekly)
+    action_type: Mapped[str] = mapped_column(String(24))  # briefing | reminder | agent
+    action_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    enabled: Mapped[bool] = mapped_column(default=True)
+    last_run_date: Mapped[str | None] = mapped_column(String(10), nullable=True)  # YYYY-MM-DD
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class SavedLocation(Base):
     """A named place the user saves (Home, Office, Gym) for geofence reminders.
     Coordinates + a radius; the phone registers the actual geofence locally."""

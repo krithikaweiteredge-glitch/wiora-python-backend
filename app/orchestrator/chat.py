@@ -46,6 +46,9 @@ TOOL_POLICY = "\n".join(
         " geofence reminder (\"remind me when I'm near X\"). To get coordinates: use the"
         " user's current location from the prompt for 'here'; call list_locations for a"
         " saved place; or geocode_place for any other place/address. Then pass lat/lng along.",
+        "- Automations: create_automation for recurring 'every day/week at TIME do X' requests"
+        " (action briefing/reminder/agent). list_automations / delete_automation to manage them.",
+        "- find_followups when the user asks what emails need a reply or follow-up.",
     ]
 )
 
