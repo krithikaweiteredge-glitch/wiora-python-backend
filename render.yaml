@@ -41,3 +41,38 @@ services:
       # "fastembed" later to re-enable semantic memory / document RAG.
       - key: EMBEDDINGS_PROVIDER
         value: none
+      - key: REDIS_URL
+        sync: false
+      - key: FCM_CREDENTIALS_PATH
+        value: firebase-credentials.json
+
+  # --- Celery Worker (Executes scheduled tasks & push notifications) ---
+  - type: worker
+    name: wiora-celery-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    startCommand: celery -A app.workflow.celery_app.celery worker --loglevel=info
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: FCM_CREDENTIALS_PATH
+        value: firebase-credentials.json
+
+  # --- Celery Beat (Scheduler daemon) ---
+  - type: worker
+    name: wiora-celery-beat
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    startCommand: celery -A app.workflow.celery_app.celery beat --loglevel=info
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: FCM_CREDENTIALS_PATH
+        value: firebase-credentials.json
+

@@ -4,6 +4,8 @@ Five reusable components are wired here so later versions bolt on without a
 rewrite: AI Orchestrator (orchestrator/), Memory Engine (memory/), Tool Engine
 (tools/ — V4), Workflow Engine (workflow/ — V2, Celery), Approval & Audit
 (audit.py)."""
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -18,13 +20,36 @@ from .routers import agent, briefing, chat, health, meeting, store, tool, voice
 settings = get_settings()
 setup_logging()
 setup_sentry()
+logger = logging.getLogger("wiora.scheduler")
+
+
+async def _background_scheduler_loop() -> None:
+    """Embedded background worker loop (runs 24/7 on free web hosts without Celery).
+
+    Every 60 seconds, checks and delivers due reminders and fires time-triggered
+    automations."""
+    logger.info("Embedded background scheduler loop started.")
+    while True:
+        try:
+            from .workflow.tasks import deliver_due_reminders, run_due_automations
+
+            deliver_due_reminders()
+            run_due_automations()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Embedded scheduler error: %s", e)
+        await asyncio.sleep(60)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if settings.has_db:
         init_db()
-    yield
+    scheduler_task = asyncio.create_task(_background_scheduler_loop())
+    try:
+        yield
+    finally:
+        scheduler_task.cancel()
+
 
 
 app = FastAPI(title="Wiora API", version="1.0.0", lifespan=lifespan)
