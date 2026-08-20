@@ -1,5 +1,6 @@
 """Task tools (backend) — a to-do list stored in Postgres (blueprint V2)."""
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -11,6 +12,7 @@ from .base import Tool, ToolContext
 class CreateTaskArgs(BaseModel):
     text: str = Field(min_length=1, max_length=500)
     dueAt: str | None = None  # ISO 8601
+    repeat: Literal["none", "daily", "weekly", "monthly"] = "none"
 
 
 def _create(args: CreateTaskArgs, ctx: ToolContext) -> str:
@@ -20,19 +22,26 @@ def _create(args: CreateTaskArgs, ctx: ToolContext) -> str:
             due = datetime.fromisoformat(args.dueAt.replace("Z", "+00:00"))
         except ValueError:
             due = None
-    ctx.db.add(Task(user_id=ctx.user_id, text=args.text, due_at=due))
+    ctx.db.add(Task(user_id=ctx.user_id, text=args.text, due_at=due, repeat=args.repeat))
     ctx.db.commit()
-    return f'Task added: "{args.text}".'
+    suffix = f" (repeats {args.repeat})" if args.repeat != "none" else ""
+    return f'Task added: "{args.text}"{suffix}.'
 
 
 create_task_tool = Tool(
     name="create_task",
-    description="Add a to-do task for the user. Optionally give a due date as ISO 8601.",
+    description="Add a to-do task for the user. Optionally give a due date (ISO 8601) "
+    "and a repeat (daily/weekly/monthly) for recurring tasks.",
     parameters={
         "type": "object",
         "properties": {
             "text": {"type": "string"},
             "dueAt": {"type": "string", "description": "ISO 8601 due datetime (optional)."},
+            "repeat": {
+                "type": "string",
+                "enum": ["none", "daily", "weekly", "monthly"],
+                "description": "Recurrence; 'none' for a one-off task.",
+            },
         },
         "required": ["text"],
         "additionalProperties": False,

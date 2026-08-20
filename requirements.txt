@@ -13,6 +13,7 @@ redis==5.2.1              # caching, rate limiting, agent state (Celery queue la
 python-dotenv==1.0.1
 pymupdf==1.25.1
 python-docx==1.1.2
+openpyxl==3.1.5           # XLSX text extraction for the document pipeline
 fastembed>=0.4,<0.6
 alembic==1.14.0           # database migrations (replaces create_all going forward)
 sentry-sdk[fastapi]==2.19.2  # optional error tracking (no-op without SENTRY_DSN)

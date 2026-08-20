@@ -150,7 +150,7 @@ def list_reminders(user_id: str = Depends(current_user), db: Session = Depends(g
         select(Reminder).where(Reminder.user_id == user_id).order_by(Reminder.id.desc())
     ).scalars().all()
     return [
-        ReminderOut(id=r.id, text=r.text, dueAt=_iso(r.due_at), done=r.done, createdAt=_iso(r.created_at))
+        ReminderOut(id=r.id, text=r.text, dueAt=_iso(r.due_at), repeat=r.repeat, done=r.done, createdAt=_iso(r.created_at))
         for r in rows
     ]
 
@@ -165,11 +165,11 @@ def create_reminder(
             due = datetime.fromisoformat(body.dueAt.replace("Z", "+00:00"))
         except ValueError:
             due = None
-    r = Reminder(user_id=user_id, text=body.text, due_at=due)
+    r = Reminder(user_id=user_id, text=body.text, due_at=due, repeat=body.repeat)
     db.add(r)
     db.commit()
     db.refresh(r)
-    return ReminderOut(id=r.id, text=r.text, dueAt=_iso(r.due_at), done=r.done, createdAt=_iso(r.created_at))
+    return ReminderOut(id=r.id, text=r.text, dueAt=_iso(r.due_at), repeat=r.repeat, done=r.done, createdAt=_iso(r.created_at))
 
 
 @router.delete("/api/reminders/{rid}")
@@ -237,7 +237,7 @@ def list_tasks(user_id: str = Depends(current_user), db: Session = Depends(get_d
         select(Task).where(Task.user_id == user_id).order_by(Task.id.desc())
     ).scalars().all()
     return [
-        TaskOut(id=t.id, text=t.text, done=t.done, dueAt=_iso(t.due_at), createdAt=_iso(t.created_at))
+        TaskOut(id=t.id, text=t.text, done=t.done, dueAt=_iso(t.due_at), repeat=t.repeat, createdAt=_iso(t.created_at))
         for t in rows
     ]
 
@@ -250,11 +250,11 @@ def create_task(body: TaskIn, user_id: str = Depends(current_user), db: Session 
             due = datetime.fromisoformat(body.dueAt.replace("Z", "+00:00"))
         except ValueError:
             due = None
-    t = Task(user_id=user_id, text=body.text, due_at=due)
+    t = Task(user_id=user_id, text=body.text, due_at=due, repeat=body.repeat)
     db.add(t)
     db.commit()
     db.refresh(t)
-    return TaskOut(id=t.id, text=t.text, done=t.done, dueAt=_iso(t.due_at), createdAt=_iso(t.created_at))
+    return TaskOut(id=t.id, text=t.text, done=t.done, dueAt=_iso(t.due_at), repeat=t.repeat, createdAt=_iso(t.created_at))
 
 
 @router.patch("/api/tasks/{tid}")

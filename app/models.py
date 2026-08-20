@@ -92,6 +92,8 @@ class Reminder(Base):
     user_id: Mapped[str] = mapped_column(String(128), index=True)
     text: Mapped[str] = mapped_column(Text)
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Recurrence: none | daily | weekly | monthly.
+    repeat: Mapped[str] = mapped_column(String(16), default="none")
     done: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
@@ -139,6 +141,8 @@ class Task(Base):
     text: Mapped[str] = mapped_column(Text)
     done: Mapped[bool] = mapped_column(default=False)
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Recurrence: none | daily | weekly | monthly.
+    repeat: Mapped[str] = mapped_column(String(16), default="none")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 

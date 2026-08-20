@@ -77,12 +77,14 @@ class AgentRunRequest(BaseModel):
 class ReminderIn(BaseModel):
     text: str = Field(min_length=1, max_length=500)
     dueAt: str | None = None  # ISO 8601
+    repeat: Literal["none", "daily", "weekly", "monthly"] = "none"
 
 
 class ReminderOut(BaseModel):
     id: int
     text: str
     dueAt: str | None
+    repeat: str = "none"
     done: bool
     createdAt: str
 
@@ -123,6 +125,7 @@ class PreferenceIn(BaseModel):
 class TaskIn(BaseModel):
     text: str = Field(min_length=1, max_length=500)
     dueAt: str | None = None
+    repeat: Literal["none", "daily", "weekly", "monthly"] = "none"
 
 
 class TaskOut(BaseModel):
@@ -130,6 +133,7 @@ class TaskOut(BaseModel):
     text: str
     done: bool
     dueAt: str | None
+    repeat: str = "none"
     createdAt: str
 
 

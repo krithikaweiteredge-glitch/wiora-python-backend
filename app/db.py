@@ -31,6 +31,15 @@ class Base(DeclarativeBase):
     metadata = MetaData(schema="wiora")
 
 
+# Lightweight additive column migrations. create_all makes NEW tables but never
+# ALTERs existing ones, so new columns on existing tables are added here (idempotent
+# via ADD COLUMN IF NOT EXISTS). Proper history lives in Alembic going forward.
+_ADD_COLUMNS = [
+    "ALTER TABLE wiora.reminders ADD COLUMN IF NOT EXISTS repeat VARCHAR(16) DEFAULT 'none'",
+    "ALTER TABLE wiora.tasks ADD COLUMN IF NOT EXISTS repeat VARCHAR(16) DEFAULT 'none'",
+]
+
+
 def init_db() -> None:
     """Enable pgvector and create tables. Safe to run on every startup."""
     from . import models  # noqa: F401 — register models on Base
@@ -39,6 +48,9 @@ def init_db() -> None:
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS wiora"))
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(engine)
+    with engine.begin() as conn:
+        for stmt in _ADD_COLUMNS:
+            conn.execute(text(stmt))
 
 
 def get_db() -> Iterator[Session]:

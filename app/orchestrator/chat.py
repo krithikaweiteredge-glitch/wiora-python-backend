@@ -29,10 +29,13 @@ TOOL_POLICY = "\n".join(
         "- Call save_memory when the user asks to remember something or states a durable fact"
         " about themselves (name/role/company). Never call it to ANSWER a question — reply in words.",
         "- Call create_reminder only when the user asks to be reminded.",
-        "- Email: search_email to find, read_email to open. To WRITE an email: if the user says "
-        "'draft'/'write', use create_email_draft; if the user says 'send', use send_email (which "
-        "asks the user to confirm before it actually sends). Never claim an email was sent unless "
-        "send_email was used and confirmed.",
+        "- Email: search_email to find, read_email to open. When the user asks to see/check/read "
+        "their emails, SHOW the actual emails — list each with its sender, subject, and the "
+        "snippet (call read_email for the full body when they want to read one). Do NOT reply "
+        "with only a vague summary or just a count; present the emails themselves. To WRITE an "
+        "email: if the user says 'draft'/'write', use create_email_draft; if the user says 'send', "
+        "use send_email (which asks the user to confirm before it actually sends). Never claim an "
+        "email was sent unless send_email was used and confirmed.",
         "- Calendar: get_calendar_events / find_free_time / create_calendar_event. Compute ISO"
         " timeMin/timeMax from the current date-time.",
         "- If a tool reports Gmail/Calendar isn't connected, tell the user to connect it in"
