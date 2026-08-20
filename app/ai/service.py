@@ -48,6 +48,25 @@ class AIService:
             self._vision_client = OpenAI(api_key=settings.gemini_api_key, base_url=GEMINI_BASE)
             self._vision_model = settings.gemini_model
 
+    def generate_stream(self, system: str, messages: list[dict]):
+        """Yield the reply text in chunks as the model produces it (for SSE)."""
+        if self._client is None:
+            yield self.generate(system, messages)
+            return
+        stream = self._client.chat.completions.create(
+            model=self._model,
+            messages=[{"role": "system", "content": system}, *messages],
+            temperature=0.6,
+            stream=True,
+        )
+        for chunk in stream:
+            try:
+                delta = chunk.choices[0].delta.content
+            except (IndexError, AttributeError):
+                delta = None
+            if delta:
+                yield delta
+
     def generate(self, system: str, messages: list[dict]) -> str:
         if self._client is None:
             # No key configured — return a deterministic stub so the app runs.

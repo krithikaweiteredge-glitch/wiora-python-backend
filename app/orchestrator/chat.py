@@ -248,3 +248,92 @@ def handle_chat(db: Session, user_id: str, req: ChatRequest):
     audit.record(db, user_id, "chat", f"conv={conv.id} tools={[c.name for c in device_calls]}")
 
     return reply, provider, conv.id, device_calls, pending
+
+
+def stream_chat(db: Session, user_id: str, req: ChatRequest):
+    """Streaming variant of handle_chat: runs the tool loop, then streams the final
+    answer token-by-token. Yields event dicts: {type: 'token', text} then a single
+    {type: 'done', conversation_id, toolCalls, pendingConfirmations}. Attachments
+    are not supported here (they use the non-streaming /api/chat)."""
+    conv = _get_or_create_conversation(db, user_id, req.conversation_id)
+
+    personality = req.personality or Personality()
+    row = db.get(PersonalityRow, user_id)
+    if row is not None:
+        try:
+            personality = Personality(**json.loads(row.data))
+        except Exception:
+            pass
+    now = req.clientNow or datetime.now(timezone.utc).isoformat()
+    if req.timezone:
+        now = f"{now} ({req.timezone})"
+
+    last_user = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
+    if conv.title in (None, "Chat", "New Chat", "") and last_user:
+        clean = last_user.strip().replace("\n", " ")[:36]
+        if clean:
+            conv.title = clean
+            db.commit()
+
+    memories = retrieve(db, user_id, last_user) if last_user else []
+    system = _build_system_prompt(personality, now, build_context_block(memories))
+    if req.location is not None:
+        system += (
+            f"\nThe user's current location is approximately "
+            f"{req.location.latitude:.5f}, {req.location.longitude:.5f} (latitude, longitude)."
+        )
+
+    convo: list[dict] = [{"role": m.role, "content": m.content} for m in req.messages]
+    ctx = ToolContext(
+        db=db, user_id=user_id, google_access_token=req.googleAccessToken, timezone=req.timezone,
+        user_lat=req.location.latitude if req.location else None,
+        user_lng=req.location.longitude if req.location else None,
+    )
+
+    device_calls: list[ToolCallOut] = []
+    pending: list[ToolCallOut] = []
+
+    # Tool loop (identical policy to handle_chat), non-streamed.
+    for _ in range(MAX_TOOL_LOOPS):
+        _reply, calls, assistant_message = ai_service.generate_with_tools(system, convo, tool_specs())
+        if not calls:
+            break
+        convo.append(assistant_message)
+        for c in calls:
+            valid = validate_call(c["name"], c["args"])
+            if valid is None:
+                convo.append({"role": "tool", "tool_call_id": c["id"], "content": "Invalid call; skipped."})
+                continue
+            summary = _summarize(valid.name, valid.args)
+            if valid.confirmation == "always":
+                pending.append(ToolCallOut(**valid.__dict__, summary=summary))
+                convo.append({"role": "tool", "tool_call_id": c["id"], "content": f"Held to confirm: {summary}. Do not call again."})
+            elif valid.runs_on == "device":
+                device_calls.append(ToolCallOut(**valid.__dict__, summary=summary))
+                convo.append({"role": "tool", "tool_call_id": c["id"], "content": "Scheduled on device. Done — do not call again."})
+            else:
+                result = execute_backend(valid, ctx)
+                audit.record(db, user_id, "tool_call", f"{valid.name}: {result[:120]}")
+                convo.append({"role": "tool", "tool_call_id": c["id"], "content": result})
+
+    # Stream the final answer.
+    full = ""
+    if not device_calls and not pending:
+        for delta in ai_service.generate_stream(system, convo):
+            full += delta
+            yield {"type": "token", "text": delta}
+
+    if last_user:
+        db.add(Message(conversation_id=conv.id, user_id=user_id, role="user", content=last_user))
+    if full.strip():
+        db.add(Message(conversation_id=conv.id, user_id=user_id, role="assistant", content=full))
+    db.commit()
+    audit.record(db, user_id, "chat_stream", f"conv={conv.id} tools={[c.name for c in device_calls]}")
+
+    yield {
+        "type": "done",
+        "conversation_id": conv.id,
+        "provider": ai_service.provider,
+        "toolCalls": [c.model_dump() for c in device_calls],
+        "pendingConfirmations": [c.model_dump() for c in pending],
+    }

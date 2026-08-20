@@ -1,18 +1,42 @@
+import json
 import logging
 import traceback
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import cache
 
 logger = logging.getLogger("wiora.chat")
 from ..auth import current_user
-from ..db import get_db
-from ..orchestrator.chat import handle_chat
+from ..db import SessionLocal, get_db
+from ..orchestrator.chat import handle_chat, stream_chat
 from ..schemas import ChatRequest, ChatResponse
 
 router = APIRouter()
+
+
+@router.post("/api/chat/stream")
+def chat_stream(req: ChatRequest, user_id: str = Depends(current_user)):
+    """Server-Sent Events: streams the reply as {type:'token'} events, then a final
+    {type:'done'} with conversation_id + toolCalls + pendingConfirmations."""
+    if not cache.allow_request(user_id):
+        raise HTTPException(status_code=429, detail="Too many requests — slow down a moment.")
+
+    def event_gen():
+        # A streamed response outlives the request, so use a fresh DB session.
+        db = SessionLocal()
+        try:
+            for ev in stream_chat(db, user_id, req):
+                yield f"data: {json.dumps(ev)}\n\n"
+        except Exception as e:  # noqa: BLE001
+            logger.error("chat_stream failed: %s\n%s", e, traceback.format_exc())
+            yield f'data: {json.dumps({"type": "error", "detail": "Something went wrong."})}\n\n'
+        finally:
+            db.close()
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream")
 
 
 @router.post("/api/chat", response_model=ChatResponse)
