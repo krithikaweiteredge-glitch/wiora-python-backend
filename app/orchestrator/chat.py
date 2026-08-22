@@ -49,6 +49,13 @@ TOOL_POLICY = "\n".join(
         "- Automations: create_automation for recurring 'every day/week at TIME do X' requests"
         " (action briefing/reminder/agent). list_automations / delete_automation to manage them.",
         "- find_followups when the user asks what emails need a reply or follow-up.",
+        "- Device actions: set_alarm for a clock alarm at a TIME ('wake me at 7'); "
+        "set_timer for a COUNTDOWN duration ('timer for 10 minutes'); call_contact to "
+        "call a person by name ('call Rahul'); send_whatsapp to WhatsApp a contact "
+        "('tell Mom on WhatsApp I'll be late'); read_whatsapp to read the user's recent "
+        "captured incoming WhatsApp messages ('any WhatsApp from Rahul?'). Do NOT use "
+        "create_reminder for these — an alarm/timer is the phone's clock, a reminder is "
+        "a notification. Put the spoken time/duration into the numeric args yourself.",
     ]
 )
 
@@ -69,7 +76,8 @@ def _build_system_prompt(p: Personality, now: str, memory_block: str) -> str:
         f"You are {p.name}, a personal AI phone assistant.",
         f"Tone: {p.tone}. Formality: {p.formality}. Warmth: {p.warmth}. Confidence: {p.confidence}.",
         f"Keep responses {p.responseLength.lower()}. Humor: {p.humor}. Proactivity: {p.proactivity}.",
-        "You help with email, calendar, reminders, contacts, meetings and general questions.",
+        "You help with email, calendar, reminders, alarms, timers, calls, WhatsApp,"
+        " contacts, meetings and general questions.",
         "Never claim to have completed an action you cannot yet perform.",
         f"Current date-time: {now}.",
     ]

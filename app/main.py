@@ -14,12 +14,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
 from .db import init_db
 from .middleware import RequestLogMiddleware
-from .observability import setup_logging, setup_sentry
+from .observability import flush_langfuse, setup_langfuse, setup_logging, setup_sentry
 from .routers import agent, briefing, chat, health, meeting, store, tool, voice
 
 settings = get_settings()
 setup_logging()
 setup_sentry()
+setup_langfuse()
 logger = logging.getLogger("wiora.scheduler")
 
 
@@ -49,6 +50,7 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         scheduler_task.cancel()
+        flush_langfuse()
 
 
 

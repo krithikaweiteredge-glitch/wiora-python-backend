@@ -37,6 +37,7 @@ class Base(DeclarativeBase):
 _ADD_COLUMNS = [
     "ALTER TABLE wiora.reminders ADD COLUMN IF NOT EXISTS repeat VARCHAR(16) DEFAULT 'none'",
     "ALTER TABLE wiora.tasks ADD COLUMN IF NOT EXISTS repeat VARCHAR(16) DEFAULT 'none'",
+    "ALTER TABLE wiora.reminders ADD COLUMN IF NOT EXISTS push_notify BOOLEAN DEFAULT FALSE",
 ]
 
 

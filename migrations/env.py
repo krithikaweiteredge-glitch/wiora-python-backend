@@ -22,12 +22,22 @@ target_metadata = Base.metadata
 SCHEMA = "wiora"
 
 
+def _include_name(name, type_, parent_names):
+    """Restrict autogenerate to the `wiora` schema. The database also holds legacy
+    `public.*` tables from the old Node backend — without this filter every
+    autogenerate would try to DROP them. Only the wiora schema is ours to manage."""
+    if type_ == "schema":
+        return name == SCHEMA
+    return True
+
+
 def _configure(connection=None, **kw):
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
         version_table_schema=SCHEMA,
         include_schemas=True,
+        include_name=_include_name,
         compare_type=True,
         **kw,
     )

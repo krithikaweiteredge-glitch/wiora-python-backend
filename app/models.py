@@ -95,6 +95,12 @@ class Reminder(Base):
     # Recurrence: none | daily | weekly | monthly.
     repeat: Mapped[str] = mapped_column(String(16), default="none")
     done: Mapped[bool] = mapped_column(default=False)
+    # Whether the SERVER should deliver this reminder via push. True only for
+    # reminders CREATED server-side (e.g. by an automation) that the device never
+    # scheduled locally. Reminders created from the app fire as local device
+    # notifications, so they stay False to avoid a duplicate push. Cleared to False
+    # once pushed, so delivery is exactly-once without depending on Redis.
+    push_notify: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 

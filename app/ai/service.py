@@ -8,6 +8,7 @@ from __future__ import annotations
 from openai import OpenAI
 
 from ..config import get_settings
+from ..observability import llm_trace
 
 settings = get_settings()
 
@@ -72,33 +73,46 @@ class AIService:
             # No key configured — return a deterministic stub so the app runs.
             last = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
             return f'(mock) You said: "{last}". Add GROQ_API_KEY for real answers.'
-        completion = self._client.chat.completions.create(
-            model=self._model,
-            messages=[{"role": "system", "content": system}, *messages],
-            temperature=0.6,
-        )
-        return (completion.choices[0].message.content or "").strip()
+        full = [{"role": "system", "content": system}, *messages]
+        with llm_trace("generate", model=self._model, provider=self.provider, messages=full) as gen:
+            completion = self._client.chat.completions.create(
+                model=self._model,
+                messages=full,
+                temperature=0.6,
+            )
+            text = (completion.choices[0].message.content or "").strip()
+            gen.output(text, usage=getattr(completion, "usage", None))
+            return text
 
     def generate_vision(self, system: str, prompt: str, image_data_uri: str) -> str:
         """Answer about an image using a vision-capable model (Gemini when configured)."""
         client = self._vision_client
         if client is None:
             return "(mock) Add an AI key to read images."
-        completion = client.chat.completions.create(
+        # Trace the prompt only — never the raw base64 image (huge + sensitive).
+        with llm_trace(
+            "generate_vision",
             model=self._vision_model,
-            messages=[
-                {"role": "system", "content": system},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt or "Describe this image."},
-                        {"type": "image_url", "image_url": {"url": image_data_uri}},
-                    ],
-                },
-            ],
-            temperature=0.4,
-        )
-        return (completion.choices[0].message.content or "").strip()
+            provider="gemini" if client is not self._client else self.provider,
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt or "Describe this image."}],
+        ) as gen:
+            completion = client.chat.completions.create(
+                model=self._vision_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt or "Describe this image."},
+                            {"type": "image_url", "image_url": {"url": image_data_uri}},
+                        ],
+                    },
+                ],
+                temperature=0.4,
+            )
+            text = (completion.choices[0].message.content or "").strip()
+            gen.output(text, usage=getattr(completion, "usage", None))
+            return text
 
     def generate_with_tools(
         self, system: str, messages: list[dict], tools: list[dict] | None
@@ -114,19 +128,26 @@ class AIService:
         kwargs: dict = {}
         if tools:
             kwargs = {"tools": tools, "tool_choice": "auto"}
-        try:
-            completion = self._client.chat.completions.create(
-                model=self._model,
-                messages=[{"role": "system", "content": system}, *messages],
-                temperature=0.6,
-                **kwargs,
-            )
-        except Exception:
-            # A model on Groq occasionally emits a malformed tool call (400
-            # tool_use_failed). Fall back to a plain reply so the user isn't 500'd.
-            if tools:
-                return self.generate(system, messages), [], None
-            raise
+        full = [{"role": "system", "content": system}, *messages]
+        with llm_trace(
+            "generate_with_tools", model=self._model, provider=self.provider, messages=full
+        ) as gen:
+            try:
+                completion = self._client.chat.completions.create(
+                    model=self._model,
+                    messages=full,
+                    temperature=0.6,
+                    **kwargs,
+                )
+            except Exception:
+                # A model on Groq occasionally emits a malformed tool call (400
+                # tool_use_failed). Fall back to a plain reply so the user isn't 500'd.
+                if tools:
+                    return self.generate(system, messages), [], None
+                raise
+            return self._parse_tool_completion(completion, gen)
+
+    def _parse_tool_completion(self, completion, gen) -> tuple[str, list[dict], dict | None]:
         msg = completion.choices[0].message
         import json
         calls: list[dict] = []
@@ -151,6 +172,12 @@ class AIService:
             if raw_tool_calls
             else None
         )
+        # Record what the model produced — either its reply text or the tools it
+        # decided to call (so a tool-only turn still shows up in the trace).
+        traced_output = msg.content or (
+            "[tool_calls: " + ", ".join(c["name"] for c in calls) + "]" if calls else ""
+        )
+        gen.output(traced_output, usage=getattr(completion, "usage", None))
         return (msg.content or "").strip(), calls, assistant_message
 
 

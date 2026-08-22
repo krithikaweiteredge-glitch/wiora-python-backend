@@ -47,6 +47,20 @@ class Settings(BaseSettings):
     # Sentry error tracking — no-op until a DSN is set (sentry-sdk stays optional).
     sentry_dsn: str = ""
     environment: str = "production"
+    # Logical service name reported to tracing backends (Langfuse/OTel).
+    service_name: str = "wiora-backend"
+
+    # --- LLM observability (Langfuse) ---
+    # Traces every model call (prompt, output, latency, token cost) to Langfuse.
+    # No-op until BOTH keys are set — the app never depends on it. Get free keys at
+    # https://cloud.langfuse.com (or self-host and set LANGFUSE_HOST).
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "https://cloud.langfuse.com"
+    # Generic OpenTelemetry export. Langfuse v3 emits OTel spans; set this to ALSO
+    # ship them to your own OTLP collector (Grafana Tempo, Honeycomb, etc.). Empty
+    # = only Langfuse (when configured) receives traces.
+    otel_exporter_otlp_endpoint: str = ""
 
     # --- Web search tool ---
     # Provider: "tavily" | "brave" | "serper". Empty key = tool reports "not
@@ -56,9 +70,11 @@ class Settings(BaseSettings):
 
     # --- Celery + push (blueprint workflow engine) ---
     # Broker defaults to REDIS_URL when unset. FCM needs a Firebase service-account
-    # JSON (path) to send push; empty = push disabled (scheduling still logs).
+    # to send push; empty = push disabled (scheduling still logs). Provide it as
+    # JSON pasted into an env var (recommended on Render) OR a file path.
     celery_broker_url: str = ""
     fcm_credentials_path: str = ""
+    fcm_credentials_json: str = ""
 
     @property
     def cors_origins(self) -> list[str]:
@@ -83,6 +99,10 @@ class Settings(BaseSettings):
     @property
     def has_gemini(self) -> bool:
         return bool(self.gemini_api_key)
+
+    @property
+    def has_langfuse(self) -> bool:
+        return bool(self.langfuse_public_key and self.langfuse_secret_key)
 
     @property
     def has_db(self) -> bool:

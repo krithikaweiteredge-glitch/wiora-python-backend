@@ -35,6 +35,13 @@ from .automations import (
     delete_automation_tool,
     list_automations_tool,
 )
+from .device import (
+    call_contact_tool,
+    read_whatsapp_tool,
+    send_whatsapp_tool,
+    set_alarm_tool,
+    set_timer_tool,
+)
 
 _TOOLS: list[Tool] = [
     save_memory_tool,
@@ -62,6 +69,11 @@ _TOOLS: list[Tool] = [
     list_automations_tool,
     delete_automation_tool,
     find_followups_tool,
+    set_alarm_tool,
+    set_timer_tool,
+    call_contact_tool,
+    send_whatsapp_tool,
+    read_whatsapp_tool,
 ]
 REGISTRY: dict[str, Tool] = {t.name: t for t in _TOOLS}
 

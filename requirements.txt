@@ -17,6 +17,7 @@ openpyxl==3.1.5           # XLSX text extraction for the document pipeline
 fastembed>=0.4,<0.6
 alembic==1.14.0           # database migrations (replaces create_all going forward)
 sentry-sdk[fastapi]==2.19.2  # optional error tracking (no-op without SENTRY_DSN)
+langfuse>=3,<4               # optional LLM tracing (no-op without LANGFUSE keys); OTel-based
 celery==5.4.0             # workflow engine: scheduled reminders / briefing push
 firebase-admin>=6.5.0         # FCM push notifications
 

@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select
 
-from .. import cache
 from ..db import SessionLocal
 from ..models import Automation, Preference, Reminder, Task
 from ..services.push import send_push
@@ -50,25 +49,31 @@ def _fcm_token(db, user_id: str) -> str | None:
 
 @celery.task
 def deliver_due_reminders() -> int:
-    """Push any reminder whose time has arrived and hasn't been pushed yet.
+    """Push SERVER-OWNED reminders whose time has arrived, exactly once.
 
-    Dedup via a short-lived Redis key so a reminder fires once even though this
-    runs every minute. Returns the number of pushes sent."""
+    Only reminders flagged push_notify=True are delivered here — those created
+    server-side (e.g. by an automation) that the device never scheduled locally.
+    App-created reminders fire as local device notifications, so pushing them too
+    would double-notify. Dedup is DB-backed (clear the flag after sending), so it
+    fires once even though this runs every minute — no Redis dependency."""
     now = datetime.now(timezone.utc)
     sent = 0
     db = SessionLocal()
     try:
         due = db.execute(
-            select(Reminder).where(Reminder.done.is_(False), Reminder.due_at.isnot(None))
+            select(Reminder).where(
+                Reminder.done.is_(False),
+                Reminder.push_notify.is_(True),
+                Reminder.due_at.isnot(None),
+            )
         ).scalars().all()
         for r in due:
             if r.due_at and r.due_at <= now:
-                if cache.cache_get(f"remsent:{r.id}"):
-                    continue  # already pushed
                 token = _fcm_token(db, r.user_id)
                 if token and send_push(token, "Wiora reminder", r.text):
                     sent += 1
-                    cache.cache_set(f"remsent:{r.id}", "1", ttl_seconds=86400)
+                r.push_notify = False  # delivered (or no token) — don't retry every minute
+        db.commit()
     finally:
         db.close()
     logger.info("deliver_due_reminders: sent %d", sent)
@@ -104,7 +109,10 @@ def _do_action(db, a: Automation) -> None:
         if pref:
             send_push(pref.value, "Wiora briefing ☀️", compose_briefing(db, a.user_id))
     elif a.action_type == "reminder" and a.action_text:
-        db.add(Reminder(user_id=a.user_id, text=a.action_text, due_at=_dt.now(_tz.utc)))
+        # Server-created → the device never scheduled it locally, so mark it for push.
+        db.add(Reminder(
+            user_id=a.user_id, text=a.action_text, due_at=_dt.now(_tz.utc), push_notify=True
+        ))
     elif a.action_type == "agent" and a.action_text:
         try:
             from ..agent.runner import run_agent
